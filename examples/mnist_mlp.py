@@ -15,10 +15,10 @@ from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import SGD, Adam, RMSprop
 from keras.utils import np_utils
 
-
-batch_size = 128
+# TODO: change the data sizes back to full data and 128 batch size after debug
+batch_size = 10
 nb_classes = 10
-nb_epoch = 20
+nb_epoch = 1 #TODO: and also change nb_epoch back to 20
 
 # the data, shuffled and split between tran and test sets
 (X_train, y_train), (X_test, y_test) = mnist.load_data()
@@ -49,7 +49,7 @@ model.add(Activation('softmax'))
 rms = RMSprop()
 model.compile(loss='categorical_crossentropy', optimizer=rms)
 
-model.fit(X_train, Y_train,
+model.fit(X_train[0:10], Y_train[0:10],
           batch_size=batch_size, nb_epoch=nb_epoch,
           show_accuracy=True, verbose=2,
           validation_data=(X_test, Y_test))
