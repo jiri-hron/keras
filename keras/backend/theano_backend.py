@@ -546,7 +546,7 @@ def tanh(x):
 
 def dropout(x, level, seed=None):
     if level < 0. or level >= 1:
-        raise Exception('Dropout level must be in interval [0, 1[.')
+        raise Exception('Dropout level must be in interval [0, 1].')
     if seed is None:
         seed = np.random.randint(10e6)
     rng = RandomStreams(seed=seed)

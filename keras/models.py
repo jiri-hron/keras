@@ -306,6 +306,39 @@ class Model(object):
                 progbar.update(batch_end)
         return outs
 
+    def _output_loop(self, f, ins, num_samples=10, batch_size=128, verbose=0):
+        '''Abstract method to loop over some data in batches.
+        '''
+        nb_sample = len(ins[0])
+        outs = []
+        if verbose == 1:
+            progbar = Progbar(target=nb_sample)
+        batches = make_batches(nb_sample, batch_size)
+        index_array = np.arange(nb_sample)
+        for batch_index, (batch_start, batch_end) in enumerate(batches):
+            batch_ids = index_array[batch_start:batch_end]
+            ins_batch = slice_X(ins, batch_ids)
+
+            batch_preds = np.empty((nb_sample,num_samples), dtype=np.float32)
+            for i in range(num_samples):
+                batch_preds[:,i] = f(ins_batch)
+            # batch_mean =
+            # TODO: finish the code
+
+            batch_outs = f(ins_batch)
+            if type(batch_outs) != list:
+                batch_outs = [batch_outs]
+            if batch_index == 0:
+                for batch_out in batch_outs:
+                    shape = (nb_sample,) + batch_out.shape[1:]
+                    outs.append(np.zeros(shape))
+
+            for i, batch_out in enumerate(batch_outs):
+                outs[i][batch_start:batch_end] = batch_out
+            if verbose == 1:
+                progbar.update(batch_end)
+        return outs
+
     def _test_loop(self, f, ins, batch_size=128, verbose=0):
         '''Abstract method to loop over some data in batches.
         '''
@@ -435,6 +468,10 @@ class Sequential(Model, containers.Sequential):
         self.y_train = self.get_output(train=True)
         self.y_test = self.get_output(train=False)
 
+        # CUSTOM: adding test set with sampling
+        self.X_output = self.get_input(train=True)
+        self.y_output = self.get_output(train=True)
+
         # target of model
         self.y = K.placeholder(ndim=K.ndim(self.y_train))
         # weights: one scalar per sample
@@ -482,6 +519,9 @@ class Sequential(Model, containers.Sequential):
         self._predict = K.function(predict_ins, [self.y_test], updates=self.state_updates)
         self._test = K.function(test_ins, [test_loss], updates=self.state_updates)
         self._test_with_acc = K.function(test_ins, [test_loss, test_accuracy], updates=self.state_updates)
+
+        # CUSTOM: define the functions for output
+        self._output = K.function([self.X_output], [self.y_output], updates=self.state_updates)
 
     def fit(self, X, y, batch_size=128, nb_epoch=100, verbose=1, callbacks=[],
             validation_split=0., validation_data=None, shuffle=True,
@@ -614,6 +654,12 @@ class Sequential(Model, containers.Sequential):
         '''
         X = standardize_X(X)
         return self._predict_loop(self._predict, X, batch_size, verbose)[0]
+
+    def output(self, X, batch_size=128, verbose=0):
+        # TODO: implement batch_prediction and verbose
+        X = standardize_X(X)
+        return self._output(X)
+
 
     def predict_proba(self, X, batch_size=128, verbose=1):
         '''Generate class probability predictions for the input samples

@@ -54,6 +54,6 @@ model.fit(X_train, Y_train,
           show_accuracy=True, verbose=2,
           validation_data=(X_test, Y_test))
 score = model.evaluate(X_test, Y_test,
-                       show_accuracy=True, verbose=0)
+                       show_accuracy=True, verbose=1)
 print('Test score:', score[0])
 print('Test accuracy:', score[1])
