@@ -306,11 +306,14 @@ class Model(object):
                 progbar.update(batch_end)
         return outs
 
-    def _output_loop(self, f, ins, num_samples=10, batch_size=128, verbose=0):
+    def _output_loop(self, f, ins, nb_resample=10, batch_size=128, verbose=0):
         '''Abstract method to loop over some data in batches.
         '''
         nb_sample = len(ins[0])
-        outs = []
+        nb_output = self.layers[-1].output_shape[1]
+        # outs = []
+        means = []
+        stds = []
         if verbose == 1:
             progbar = Progbar(target=nb_sample)
         batches = make_batches(nb_sample, batch_size)
@@ -318,26 +321,32 @@ class Model(object):
         for batch_index, (batch_start, batch_end) in enumerate(batches):
             batch_ids = index_array[batch_start:batch_end]
             ins_batch = slice_X(ins, batch_ids)
+            nb_in_batch = ins_batch[0].shape[0]
 
-            batch_preds = np.empty((nb_sample,num_samples), dtype=np.float32)
-            for i in range(num_samples):
-                batch_preds[:,i] = f(ins_batch)
-            # batch_mean =
-            # TODO: finish the code
+            batch_preds = np.empty((nb_in_batch, nb_output, nb_resample))
+            for i in range(nb_resample):
+                batch_preds[:, :, i] = f(ins_batch)[0]
+            batch_means = np.mean(batch_preds, axis=-1)
+            batch_stds = np.std(batch_preds, axis=-1)
 
-            batch_outs = f(ins_batch)
-            if type(batch_outs) != list:
-                batch_outs = [batch_outs]
-            if batch_index == 0:
-                for batch_out in batch_outs:
-                    shape = (nb_sample,) + batch_out.shape[1:]
-                    outs.append(np.zeros(shape))
+            means.extend(batch_means)
+            stds.extend(batch_stds)
 
-            for i, batch_out in enumerate(batch_outs):
-                outs[i][batch_start:batch_end] = batch_out
+            # batch_outs = f(ins_batch)
+            # if type(batch_outs) != list:
+            #     batch_outs = [batch_outs]
+            # if batch_index == 0:
+            #     for batch_out in batch_outs:
+            #         shape = (nb_sample,) + batch_out.shape[1:]
+            #         outs.append(np.zeros(shape))
+            #
+            # for i, batch_out in enumerate(batch_outs):
+            #     outs[i][batch_start:batch_end] = batch_out
+
             if verbose == 1:
                 progbar.update(batch_end)
-        return outs
+
+        return (np.asarray(means), np.asarray(stds))
 
     def _test_loop(self, f, ins, batch_size=128, verbose=0):
         '''Abstract method to loop over some data in batches.
@@ -655,10 +664,23 @@ class Sequential(Model, containers.Sequential):
         X = standardize_X(X)
         return self._predict_loop(self._predict, X, batch_size, verbose)[0]
 
-    def output(self, X, batch_size=128, verbose=0):
-        # TODO: implement batch_prediction and verbose
+    def output(self, X, nb_resample=10, batch_size=128, verbose=0):
+        '''Generate output predictions for the input samples
+        batch by batch with resampling if the model contains stochastic layers.
+
+        # Arguments
+            X: the input data, as a numpy array.
+            nb_resample: number of
+            batch_size: integer.
+            verbose: verbosity mode, 0 or 1.
+
+        # Returns
+            A tuple of numpy array of prediction means (first) and standard
+            deviations.
+        '''
         X = standardize_X(X)
-        return self._output(X)
+        return self._output_loop(self._output, X,
+                                 nb_resample, batch_size, verbose)
 
 
     def predict_proba(self, X, batch_size=128, verbose=1):
